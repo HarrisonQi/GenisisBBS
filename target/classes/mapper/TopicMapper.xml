@@ -1,0 +1,358 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.withstars.dao.TopicMapper">
+
+    <!-- 主题基本结果集  -->
+    <resultMap id="BaseResultMap" type="com.withstars.domain.Topic">
+        <id column="id" property="id" jdbcType="INTEGER"/>
+        <result column="user_id" property="userId" jdbcType="INTEGER"/>
+        <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
+        <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
+        <result column="title" property="title" jdbcType="VARCHAR"/>
+        <result column="click" property="click" jdbcType="INTEGER"/>
+        <result column="tab_id" property="tabId" jdbcType="TINYINT"/>
+        <result column="liang" property="liang" jdbcType="TINYINT"/>
+        <result column="sort" property="sort" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <!-- 主题基本结果集+ 主题内容  用于主题详情-->
+    <resultMap id="ResultMapWithBLOBs" type="com.withstars.domain.Topic" extends="BaseResultMap">
+        <result column="content" property="content" jdbcType="LONGVARCHAR"/>
+    </resultMap>
+
+    <!-- 主题和用户信息结果集 用于首页显示  -->
+    <resultMap id="topicAndUserInfo" type="com.withstars.domain.Topic">
+        <id column="id" property="id" jdbcType="INTEGER"/>
+        <result column="user_id" property="userId" jdbcType="INTEGER"/>
+        <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
+        <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
+        <result column="title" property="title" jdbcType="VARCHAR"/>
+        <result column="click" property="click" jdbcType="INTEGER"/>
+        <result column="tab_id" property="tabId" jdbcType="TINYINT"/>
+        <result column="count_replies" property="countReplies" jdbcType="INTEGER"/>
+        <result column="liang" property="liang" jdbcType="TINYINT"/>
+        <result column="sort" property="sort" jdbcType="VARCHAR"/>
+        <association property="user" javaType="com.withstars.domain.User">
+            <id column="id" property="id" jdbcType="INTEGER"/>
+            <result column="username" property="username" jdbcType="VARCHAR"/>
+            <result column="avatar" property="avatar" jdbcType="VARCHAR"/>
+        </association>
+        <association property="tab" javaType="com.withstars.domain.Tab">
+            <id column="id" property="id" jdbcType="INTEGER"/>
+            <result column="tab_name" property="tabName" jdbcType="VARCHAR"/>
+        </association>
+    </resultMap>
+
+    <!-- 主题详情及用户必要信息 用于主题详情页  -->
+    <resultMap id="topicAndUserDetail" type="com.withstars.domain.Topic">
+        <id column="id" property="id" jdbcType="INTEGER"/>
+        <result column="user_id" property="userId" jdbcType="INTEGER"/>
+        <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
+        <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
+        <result column="title" property="title" jdbcType="VARCHAR"/>
+        <result column="content" property="content" jdbcType="LONGVARCHAR"/>
+        <result column="click" property="click" jdbcType="INTEGER"/>
+        <result column="tab_id" property="tabId" jdbcType="TINYINT"/>
+        <result column="liang" property="liang" jdbcType="TINYINT"/>
+        <result column="sort" property="sort" jdbcType="VARCHAR"/>
+        <association property="user" javaType="com.withstars.domain.User">
+            <id column="id" property="id" jdbcType="INTEGER"/>
+            <result column="username" property="username" jdbcType="VARCHAR"/>
+            <result column="avatar" property="avatar" jdbcType="VARCHAR"/>
+        </association>
+    </resultMap>
+
+    <!-- 最多评论主题列表 -->
+    <resultMap id="mostCommentsTopic" type="com.withstars.domain.Topic">
+        <id column="id" property="id" jdbcType="INTEGER"/>
+        <result column="count_replies" property="countReplies" jdbcType="INTEGER"/>
+        <result column="title" property="title" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+    id, user_id, create_time, update_time, title, click, tab_id,sort
+  </sql>
+
+    <sql id="Blob_Column_List">
+    content
+  </sql>
+
+    <select id="listTopicsAndUsers" resultMap="topicAndUserInfo">
+        SELECT
+        topic.sort,
+        topic.id,
+        topic.liang,
+        topic.user_id,
+        topic.create_time,
+        topic.update_time,
+        topic.title,
+        topic.click,
+        topic.tab_id,
+        USER.username,
+        USER.avatar,
+        tab.tab_name,
+        count( reply.id ) AS count_replies
+        FROM
+        topic
+        LEFT JOIN USER ON topic.user_id = USER.id
+        LEFT JOIN tab ON tab.id = topic.tab_id
+        LEFT JOIN reply ON topic.id = reply.topic_id
+        where 1=1
+        <if test="keyword!=null and keyword!=''">
+            and topic.title like concat('%',#{keyword},'%')
+        </if>
+        GROUP BY
+        topic.id
+        ORDER BY
+        topic.sort DESC,
+        topic.id DESC
+        <if test="start!=null">
+            limit #{start}, #{count}
+        </if>
+    </select>
+
+    <select id="listTopicsAndUsersOfTab" resultMap="topicAndUserInfo">
+        SELECT
+        topic.sort,
+        topic.id,
+        topic.liang,
+        topic.user_id,
+        topic.create_time,
+        topic.update_time,
+        topic.title,
+        topic.click,
+        topic.tab_id,
+        USER.username,
+        USER.avatar,
+        tab.tab_name,
+        count( reply.id ) AS count_replies
+        FROM
+        topic
+        LEFT JOIN USER ON topic.user_id = USER.id
+        LEFT JOIN tab ON tab.id = topic.tab_id
+        LEFT JOIN reply ON topic.id = reply.topic_id
+        WHERE
+        tab.id = #{tabId}
+        <if test="keyword!=null and keyword!=''">and topic.title like concat('%',#{keyword},'%')</if>
+        GROUP BY
+        topic.id
+        ORDER BY
+        topic.sort DESC,
+        topic.id DESC
+        <if test="start!=null">
+            limit #{start}, #{count}
+        </if>
+    </select>
+
+    <select id="selectById" parameterType="java.lang.Integer" resultMap="topicAndUserDetail">
+      SELECT topic.*,user.username,user.avatar from topic,user where topic.user_id = user.id and topic.id = #{id,jdbcType=INTEGER};
+  </select>
+
+
+    <select id="getAllTopics" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from topic
+        ORDER BY id DESC
+    </select>
+
+    <resultMap id="BaseResultMap11111" type="com.withstars.domain.Topic">
+        <id column="id" property="id" jdbcType="INTEGER"/>
+        <result column="title" property="title" jdbcType="VARCHAR"/>
+        <result column="content" property="content" jdbcType="VARCHAR"/>
+    </resultMap>
+    <select id="getAllTopTopic" resultMap="BaseResultMap11111">
+    select
+    id,content,title
+    from topic where sort='1'
+    ORDER BY id DESC
+  </select>
+
+    <select id="getTopicsNum" resultType="java.lang.Integer">
+    select
+    COUNT(*)
+    from topic
+  </select>
+
+    <select id="listMostCommentsTopics" resultMap="mostCommentsTopic">
+    SELECT topic.id,topic.title,count(reply.id) as count_replies  from topic ,reply  where topic.id = reply.topic_id group by topic.id order by count_replies DESC limit 5;
+  </select>
+
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer">
+    delete from topic
+    where id = #{id,jdbcType=INTEGER}
+  </delete>
+
+    <insert id="insert" parameterType="com.withstars.domain.Topic">
+    insert into topic (user_id, create_time,
+      update_time, title,
+      tab_id, content,sort)
+    values ( #{userId,jdbcType=INTEGER}, #{createTime,jdbcType=TIMESTAMP},
+      #{updateTime,jdbcType=TIMESTAMP}, #{title,jdbcType=VARCHAR},
+      #{tabId,jdbcType=TINYINT}, #{content,jdbcType=LONGVARCHAR},#{sort})
+  </insert>
+
+    <insert id="insertSelective" parameterType="com.withstars.domain.Topic">
+        insert into topic
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                id,
+            </if>
+            <if test="userId != null">
+                user_id,
+            </if>
+            <if test="createTime != null">
+                create_time,
+            </if>
+            <if test="updateTime != null">
+                update_time,
+            </if>
+            <if test="title != null">
+                title,
+            </if>
+            <if test="click != null">
+                click,
+            </if>
+            <if test="tabId != null">
+                tab_id,
+            </if>
+            <if test="content != null">
+                content,
+            </if>
+            <if test="sort != null">
+                sort,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id,jdbcType=INTEGER},
+            </if>
+            <if test="userId != null">
+                #{userId,jdbcType=INTEGER},
+            </if>
+            <if test="createTime != null">
+                #{createTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="updateTime != null">
+                #{updateTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="title != null">
+                #{title,jdbcType=VARCHAR},
+            </if>
+            <if test="click != null">
+                #{click,jdbcType=INTEGER},
+            </if>
+            <if test="tabId != null">
+                #{tabId,jdbcType=TINYINT},
+            </if>
+            <if test="content != null">
+                #{content,jdbcType=LONGVARCHAR},
+            </if>
+            <if test="sort != null">
+                #{sort},
+            </if>
+        </trim>
+    </insert>
+
+    <update id="updateByPrimaryKeySelective" parameterType="com.withstars.domain.Topic">
+        update topic
+        <set>
+            <if test="userId != null">
+                user_id = #{userId,jdbcType=INTEGER},
+            </if>
+            <if test="createTime != null">
+                create_time = #{createTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="updateTime != null">
+                update_time = #{updateTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="title != null">
+                title = #{title,jdbcType=VARCHAR},
+            </if>
+            <if test="click != null">
+                click = #{click,jdbcType=INTEGER},
+            </if>
+            <if test="tabId != null">
+                tab_id = #{tabId,jdbcType=TINYINT},
+            </if>
+            <if test="content != null">
+                content = #{content,jdbcType=LONGVARCHAR},
+            </if>
+        </set>
+        where id = #{id,jdbcType=INTEGER}
+    </update>
+
+    <update id="updateByPrimaryKeyWithBLOBs" parameterType="com.withstars.domain.Topic">
+    update topic
+    set user_id = #{userId,jdbcType=INTEGER},
+      create_time = #{createTime,jdbcType=TIMESTAMP},
+      update_time = #{updateTime,jdbcType=TIMESTAMP},
+      title = #{title,jdbcType=VARCHAR},
+      click = #{click,jdbcType=INTEGER},
+      tab_id = #{tabId,jdbcType=TINYINT},
+      content = #{content,jdbcType=LONGVARCHAR}
+    where id = #{id,jdbcType=INTEGER}
+  </update>
+    <update id="updateByPrimaryKey" parameterType="com.withstars.domain.Topic">
+    update topic
+    set user_id = #{userId,jdbcType=INTEGER},
+      create_time = #{createTime,jdbcType=TIMESTAMP},
+      update_time = #{updateTime,jdbcType=TIMESTAMP},
+      title = #{title,jdbcType=VARCHAR},
+      click = #{click,jdbcType=INTEGER},
+      tab_id = #{tabId,jdbcType=TINYINT}
+    where id = #{id,jdbcType=INTEGER}
+  </update>
+
+    <update id="clickAddOne" parameterType="java.lang.Integer">
+    update topic
+    set
+    click = click+1
+    where id = #{id,jdbcType=INTEGER}
+  </update>
+
+
+    <resultMap id="BaseResultMap11" type="com.withstars.domain.MyTopic">
+        <id column="id" property="id" jdbcType="INTEGER"/>
+        <result column="user_id" property="userId" jdbcType="INTEGER"/>
+        <result column="create_time" property="createTime" jdbcType="VARCHAR"/>
+        <result column="update_time" property="updateTime" jdbcType="VARCHAR"/>
+        <result column="title" property="title" jdbcType="VARCHAR"/>
+        <result column="click" property="click" jdbcType="INTEGER"/>
+        <result column="tab_id" property="tabId" jdbcType="TINYINT"/>
+        <result column="username" property="username" jdbcType="VARCHAR"/>
+        <result column="avatar" property="avatar" jdbcType="VARCHAR"/>
+        <result column="tab_name" property="tabname" jdbcType="VARCHAR"/>
+        <result column="sort" property="sort" jdbcType="VARCHAR"/>
+        <result column="liang" property="liang" jdbcType="TINYINT"/>
+        <result column="count_replies" property="countReplies" jdbcType="VARCHAR"/>
+    </resultMap>
+    <select id="getAllTopicsById" resultMap="BaseResultMap11">
+    SELECT topic.sort,topic.id,topic.liang,topic.user_id,DATE_FORMAT(topic.create_time,   '%Y-%m-%d %H:%i:%S') create_time,DATE_FORMAT(topic.update_time,   '%Y-%m-%d %H:%i:%S') update_time,topic.title,topic.click,topic.tab_id,user.username,user.avatar ,
+    tab.tab_name,COUNT(reply.id) AS count_replies FROM topic LEFT JOIN USER ON  topic.user_id = user.id
+	LEFT JOIN tab ON tab.id=topic.tab_id  LEFT JOIN reply ON topic.id=reply.topic_id WHERE user_id=#{userid}
+	GROUP BY topic.id order by topic.sort desc,topic.id desc;
+  </select>
+
+    <select id="getAllTopicsByReplyId" resultMap="BaseResultMap11">
+    SELECT topic.sort,topic.id,topic.user_id,topic.liang,DATE_FORMAT(topic.create_time,   '%Y-%m-%d %H:%i:%S') create_time,DATE_FORMAT(topic.update_time,   '%Y-%m-%d %H:%i:%S') update_time,topic.title,topic.click,topic.tab_id,user.username,user.avatar ,
+    tab.tab_name,COUNT(reply.id) AS count_replies FROM topic LEFT JOIN USER ON  topic.user_id = user.id
+	LEFT JOIN tab ON tab.id=topic.tab_id  LEFT JOIN reply ON topic.id=reply.topic_id WHERE reply_user_id=#{userid}
+	GROUP BY topic.id order by topic.sort desc,topic.id desc;
+  </select>
+
+    <update id="dianAddOne" parameterType="java.lang.Integer">
+    update topic
+    set
+    liang = liang+1
+    where id = #{id,jdbcType=INTEGER}
+  </update>
+
+    <select id="getAllCollections" resultMap="BaseResultMap11">
+    SELECT topic.sort,topic.id,topic.user_id,topic.liang,DATE_FORMAT(topic.create_time,   '%Y-%m-%d %H:%i:%S') create_time,DATE_FORMAT(topic.update_time,   '%Y-%m-%d %H:%i:%S') update_time,topic.title,topic.click,topic.tab_id,user.username,user.avatar ,
+    tab.tab_name,COUNT(reply.id) AS count_replies FROM topic LEFT JOIN USER ON  topic.user_id = user.id
+	LEFT JOIN tab ON tab.id=topic.tab_id  LEFT JOIN reply ON topic.id=reply.topic_id WHERE topic.id IN(SELECT u.topicid FROM user_collect u WHERE u.userid=#{userid})
+	GROUP BY topic.id order by topic.sort desc,topic.id desc ;
+  </select>
+
+</mapper>
